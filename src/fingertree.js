@@ -37,6 +37,47 @@
   };
 
   /**
+   * Iterator stuff.
+   */
+
+  var iteratorSymbol = typeof Symbol === 'function' ? Symbol.iterator : '@@iterator';
+
+  function baseIterator (items) {
+    var nextIndex = 0;
+    return {
+      next: function () {
+        if (nextIndex === items.length) {
+          return {done: true};
+        }
+        return {value: items[nextIndex++], done: false};
+      }
+    };
+  }
+
+  function derivedIterator (items) {
+    var nextIndex = 0, iterator = null;
+    return {
+      next: function () {
+        while (true) {
+          if (iterator === null) {
+            if (nextIndex === items.length) {
+              return {done: true};
+            }
+            iterator = items[nextIndex][iteratorSymbol]();
+            nextIndex += 1;
+          }
+          var result = iterator.next();
+          if (!result.done) {
+            return result;
+          }
+          iterator = null;
+        }
+      }
+    };
+  }
+
+
+  /**
    * Placeholder for methods of interfaces / abstract base classes.
    */
   function notImplemented() {
@@ -178,6 +219,19 @@
   };
 
   /**
+   * Return an iterator object for the digit's elements.
+   * @return {Object}
+   */
+  Digit.prototype[iteratorSymbol] =  function () {
+    if (this.measurer.rank > 0) {
+      return derivedIterator(this.items);
+    } else {
+      return baseIterator(this.items);
+    }
+  };
+
+
+  /**
    * A node is a measured container of either 2 or 3 sub-finger-trees.
    * @constructor
    * @param {Object.<string, function>} measurer
@@ -224,6 +278,18 @@
       items: this.items,
       measure: this.measure()
     };
+  };
+
+  /**
+   * Return an iterator object for the node's elements.
+   * @return {Object}
+   */
+  Node.prototype[iteratorSymbol] = function () {
+    if (this.measurer.rank > 0) {
+      return derivedIterator(this.items);
+    } else {
+      return baseIterator(this.items);
+    }
   };
 
   /**
@@ -326,6 +392,12 @@
    */
   FingerTree.prototype.toJSON = notImplemented;
 
+  /**
+   * Return an iterator object for the tree's elements.
+   * @return {Object}
+   */
+  FingerTree.prototype[iteratorSymbol] = notImplemented;
+
 
   /**
    * An empty finger-tree.
@@ -404,6 +476,14 @@
     return {
       type: 'empty',
       measure: this.measure()
+    };
+  };
+
+  Empty.prototype[iteratorSymbol] = function () {
+    return {
+      next: function () {
+        return {done: true};
+      }
     };
   };
 
@@ -527,6 +607,23 @@
       type: 'single',
       value: this.value,
       measure: this.measure()
+    };
+  };
+
+  /**
+   * @inheritDoc
+   */
+  Single.prototype[iteratorSymbol] = function () {
+    var value = this.value;
+    var done = false;
+    return {
+      next: function () {
+        if (done) {
+          return {done: true};
+        }
+        done = true;
+        return {value: value, done: false};
+      }
     };
   };
 
@@ -772,6 +869,13 @@
     };
   };
 
+  /**
+   * @inheritDoc
+   */
+  Deep.prototype[iteratorSymbol] = function () {
+    return derivedIterator([this.left, this.mid, this.right]);
+  };
+
 
   /**
    * A lazy-evaluted finger-tree.
@@ -894,6 +998,13 @@
     return this.force().toJSON();
   };
 
+  /**
+   * @inheritDoc
+   */
+  DelayedFingerTree.prototype[iteratorSymbol] = function () {
+    return this.force()[iteratorSymbol]();
+  };
+
 
   /**
    * @param {Array} left
@@ -1014,7 +1125,8 @@
       measure: function (n) {
         return n.measure();
       },
-      sum: measurer.sum
+      sum: measurer.sum,
+      rank: measurer.rank + 1
     };
   }
 
@@ -1053,17 +1165,22 @@
    * @return {FingerTree}
    */
   function fromArray(xs, measurer) {
-    measurer = measurer || {
-      identity: function () {
-        return 0;
-      },
-      measure: function (v) {
-        return 1;
-      },
-      sum: function (a, b) {
-        return a + b;
-      }
-    };
+    if (!measurer) {
+      measurer = {
+        identity: function () {
+          return 0;
+        },
+        measure: function (v) {
+          return 1;
+        },
+        sum: function (a, b) {
+          return a + b;
+        }
+      };
+    }
+    if (!('rank' in measurer)) {
+      measurer.rank = 0;
+    }
     return prepend(new Empty(measurer), xs);
   }
 

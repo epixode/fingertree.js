@@ -12,6 +12,18 @@ describe('Finger Tree', function () {
     return a;
   }
 
+  var iteratorSymbol = typeof Symbol === 'function' ? Symbol.iterator : '@@iterator';
+
+  function toArray(iterable) {
+    var elements = [], it = iterable[iteratorSymbol]();
+    while (true) {
+      var temp = it.next();
+      if (temp.done) break;
+      elements.push(temp.value)
+    }
+    return elements;
+  }
+
   it('should construct an empty tree when given an empty array', function () {
     var tree = FingerTree.fromArray([]);
     tree.isEmpty().should.be.true;
@@ -340,4 +352,16 @@ describe('Finger Tree', function () {
       measure: 9
     });
   });
+
+  it('should be able to be iterable', function () {
+    function checkIterable(elements) {
+      toArray(FingerTree.fromArray(elements)).should.eql(elements);
+    }
+    checkIterable([]);
+    checkIterable([1]);
+    checkIterable([1, 2, 3]);
+    checkIterable([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    checkIterable(range(100));
+  });
+
 });
