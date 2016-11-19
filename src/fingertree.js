@@ -614,6 +614,9 @@
    * @inheritDoc
    */
   Single.prototype[iteratorSymbol] = function () {
+    if (this.value.measurer.rank > 0) {
+      return this.value[iteratorSymbol]();
+    }
     var value = this.value;
     var done = false;
     return {
